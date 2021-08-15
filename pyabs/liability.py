@@ -40,6 +40,12 @@ class Tranche(TrancheBase):
 class ScheduleTranche(Tranche):
     payment_schedule:pd.DataFrame
 
+def _pay_with(cash:float,target:float):
+    paid = target if cash>target else cash
+    remain = cash - paid
+    new_shortfall = target - paid 
+    return remain, paid, new_shortfall
+
 
 def pay_bonds_int(spv, b:Tranche,cash:float,pdate:pd.Timestamp,days_in_year=360)->float:
     if(b.last_paydate[LAST_PAY_TYPE.INT]):
@@ -50,9 +56,7 @@ def pay_bonds_int(spv, b:Tranche,cash:float,pdate:pd.Timestamp,days_in_year=360)
     due_int = due_int_this_period + b.interest_shortfall
 
     #pay interest
-    int_paid =  due_int if (cash - due_int)>0 else cash
-    remain_cash = cash - int_paid
-    new_shortfall = due_int - int_paid
+    remain_cash, int_paid, new_shortfall = _pay_with(cash, due_int)
 
     #change status
     b.last_paydate[LAST_PAY_TYPE.INT] = pdate
@@ -80,10 +84,8 @@ def pay_bonds_prin(b:Tranche,cash:float,pdate:pd.Timestamp)->float:
     due_principal = calc_due_prin() #
 
     #pay principal
-    prin_paid = due_principal if (cash - due_principal)>0 else cash
-    remain_cash = cash - prin_paid
-    new_shortfall = due_principal - prin_paid
-
+    remain_cash, prin_paid, new_shortfall = _pay_with(cash, due_principal)
+    
     #change status
     b.last_paydate[LAST_PAY_TYPE.PRIN] = pdate
     b.principal_shortfall = new_shortfall
@@ -100,13 +102,31 @@ class FeeBase:
 class FEE_TYPE(IntEnum):
     BASE_POOL_BAL=1
     BASE_BOND_BAL=2
-    BASE_POOL_INT=3
+    BASE_POOL_INT=3 # interest collected
+    BASE_POOL_PRIN=4 # principal collected
 
 @dataclass
 class Fee(FeeBase):
     name:str
     base:FEE_TYPE
-
+    rate:float
     #payment txn info 
     last_paydate:pd.Timestamp
     fee_shortfall:float
+
+def pay_fee(spv, f:Fee,base:float,cash:float,pdate:pd.Timestamp)->float:
+    # calc due fee
+    if f.last_paydate is None:
+        days_accrued = (pdate - spv.closing_date).days
+    else:
+        days_accrued = (pdate - f.last_paydate).days
+
+    current_due = f.rate * days_accrued/360 * base
+
+    # pay fee
+    remain_cash, fee_paid, new_shortfall = _pay_with(cash, current_due+f.fee_shortfall)
+
+    # update status
+    f.last_paydate = pdate
+    f.fee_shortfall = new_shortfall
+    return f"{f.name}_FEE",fee_paid,remain_cash
