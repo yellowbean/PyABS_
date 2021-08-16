@@ -7,6 +7,7 @@ import functools
 from enum import IntEnum
 from pyabs.liability import FEE_TYPE,Fee, Tranche, pay_bonds_int, pay_bonds_prin, pay_fee
 from pyabs.util import init_cf
+from pyabs.local.china import pay_vat
 # constants
 MAX_MONTH = 12*30+1
 
@@ -79,8 +80,9 @@ class BankDeal(SPVBase):
                                                                lambda fid:
                                                                     match(self.fees[fid], 
                                                                         Fee(_,FEE_TYPE.BASE_POOL_BAL,_,_,_), 
-                                                                            lambda _1,_2,_3,_4 :pay_fee(self, self.fees[fid],project_bond_cf.loc[dist_date,"POOL_BEG_BAL"],available_funds,dist_date)
-                                                                        
+                                                                            lambda _1,_2,_3,_4 :pay_fee(self, self.fees[fid],project_bond_cf.loc[dist_date,"POOL_BEG_BAL"],available_funds,dist_date),
+                                                                        Fee("增值税",FEE_TYPE.BASE_POOL_INT,_,_,_), 
+                                                                            lambda _1,_2,_3 :pay_vat(self.fees[fid],project_bond_cf.loc[dist_date,"POOL_INT"],available_funds,dist_date)
                                                                         ), 
                                                                ["BOND", "PRIN", _], lambda bid: pay_bonds_prin(
                                                                    self.bonds[bid], available_funds, dist_date),

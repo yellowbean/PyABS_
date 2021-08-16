@@ -1,6 +1,7 @@
 from pyabs.liability import AMORTIZE_TYPE, Tranche, ScheduleTranche, Fee, FEE_TYPE
 from pyabs.util import *
 from pyabs.spv import *
+from pyabs.local.china import * 
 import pandas as pd
 import pytest
 
@@ -152,3 +153,59 @@ def test_bank_deal_03():
     
 
     projected_bond_result.to_csv("bank_deal_03.csv")
+
+def test_bank_deal_04():
+    ''' two bond with service fee and China VAT'''
+    bd = BankDeal("bd03",
+                  ts("20210721"),
+                  ts("20210821"),
+                  pd.Timedelta("1M"),
+                  ts("20210921"),
+                  1,
+                  {
+                      "A": ScheduleTranche("A", 600, 0.08, {}, 600, 0.04,
+                                           AMORTIZE_TYPE.PASS_TRHOUGH, [None, None], 0, 0, pd.DataFrame.from_dict({
+                                               "date": [ts('20211021'), ts('20211121')],
+                                               "target_balance": [550, 400],
+                                           })
+                                           ),
+
+                      "B": Tranche("B", 400, 0.08, {}, 400, 0.05,
+                                   AMORTIZE_TYPE.PASS_TRHOUGH, [None, None], 0, 0),
+                  },
+                  {"Service": 
+                    Fee("Service", FEE_TYPE.BASE_POOL_BAL, 0.005, None, 0),
+                    "VAT":VAT(0.0326)                     
+                      },
+                  # payment sequence
+                  [
+                      ["FEE", "VAT"],
+                      ["FEE", "Service"],
+                      ["BOND", "INT", "A"],
+                      ["BOND", "INT", "B"],
+                      ["BOND", "PRIN", "A"],
+                      ["BOND", "PRIN", "B"]
+                  ],
+                  {}
+                  )
+    input_pool_cf = init_cf(
+        {"date": [ts("20211021"), ts("20211121"), ts("20211221")],
+         "PRIN": [100, 200, 300],
+         "INT": [300, 400, 500],
+         "init_bal": 600,
+         }
+    )
+    projected_bond_result = bd.run_bonds(input_pool_cf)
+
+    assert(projected_bond_result['A_PRIN'].sum()==600.0)
+
+    assert(pytest.approx(projected_bond_result['A_PRIN'][0],0.01)==50)
+    assert(pytest.approx(projected_bond_result['A_PRIN'][1],0.01)==150)
+    assert(pytest.approx(projected_bond_result['B_PRIN'][0],0.001)==331.99)
+
+    assert(pytest.approx(projected_bond_result['增值税_FEE'][0],0.001)==9.78)
+    assert(pytest.approx(projected_bond_result['增值税_FEE'][1],0.001)==13.04)
+    assert(pytest.approx(projected_bond_result['增值税_FEE'][2],0.001)==16.3)
+    
+
+    projected_bond_result.to_csv("bank_deal_04.csv")

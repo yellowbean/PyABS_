@@ -120,7 +120,6 @@ def pay_fee(spv, f:Fee,base:float,cash:float,pdate:pd.Timestamp)->float:
         days_accrued = (pdate - spv.closing_date).days
     else:
         days_accrued = (pdate - f.last_paydate).days
-
     current_due = f.rate * days_accrued/360 * base
 
     # pay fee
