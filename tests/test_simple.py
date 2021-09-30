@@ -1,18 +1,9 @@
 from pyabs.liability import AMORTIZE_TYPE, Tranche, ScheduleTranche, Fee, FEE_TYPE
 from pyabs.util import *
-from pyabs.spv import *
+from pyabs.spv import MAX_MONTH
 from pyabs.local.china import * 
 import pandas as pd
 import pytest
-
-
-def func(x):
-    return x + 1
-
-
-def test_answer():
-    assert func(4) == 5
-
 
 def test_bank_deal_01():
     ''' single bond'''
@@ -26,6 +17,7 @@ def test_bank_deal_01():
                                 AMORTIZE_TYPE.PASS_TRHOUGH, [None, None], 0, 0),
 
                    },
+                  None,
                   None,
                   # payment sequence
                   [
@@ -75,6 +67,7 @@ def test_bank_deal_02():
                                    AMORTIZE_TYPE.PASS_TRHOUGH, [None, None], 0, 0),
                   },
                   None,
+                  None,
                   # payment sequence
                   [
                       ["BOND", "INT", "A"],
@@ -123,6 +116,7 @@ def test_bank_deal_03():
                   },
                   {"Service": Fee(
                       "Service", FEE_TYPE.BASE_POOL_BAL, 0.005, None, 0)},
+                  None,
                   # payment sequence
                   [
                       ["FEE", "Service"],
@@ -177,6 +171,7 @@ def test_bank_deal_04():
                     Fee("Service", FEE_TYPE.BASE_POOL_BAL, 0.005, None, 0),
                     "VAT":VAT(0.0326)                     
                       },
+                  None,
                   # payment sequence
                   [
                       ["FEE", "VAT"],
